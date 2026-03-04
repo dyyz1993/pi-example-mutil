@@ -196,9 +196,11 @@ def main():
     log("Agent 团队自动化守护进程 v2 启动")
     log("真正的自动化开发 - 不只是生成报告")
     log("=" * 60)
-    log(f"项目目录: {PROJECT_DIR}")
+    # 安全：不记录敏感路径信息
+    log(f"项目目录: <configured>")
     log(f"GitHub 仓库: {GITHUB_REPO}")
-    log(f"pi 路径: {PI_PATH}")
+    # 安全：不记录完整路径
+    log(f"pi 路径: <configured>")
     log("")
     log("任务配置:")
     for task in TASKS:
