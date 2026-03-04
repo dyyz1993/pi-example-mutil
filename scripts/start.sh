@@ -92,7 +92,15 @@ fi
 
 # 启动新进程
 echo "  启动 Python 守护进程..."
-nohup python3 agent-daemon.py > logs/daemon.log 2>&1 &
+
+# 导出 NVM 环境
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+export PATH="$NVM_DIR/versions/node/v25.2.1/bin:$PATH"
+export NODE_PATH="$NVM_DIR/versions/node/v25.2.1/lib/node_modules"
+
+# 使用 env 启动，确保环境变量传递
+nohup env PATH="$PATH" NODE_PATH="$NODE_PATH" python3 agent-daemon.py > logs/daemon.log 2>&1 &
 echo $! > pids/agent-daemon.pid
 
 sleep 1

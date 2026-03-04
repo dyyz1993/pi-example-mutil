@@ -21,10 +21,36 @@ PROJECT_DIR = Path(__file__).parent.absolute()
 PI_PATH = "/Users/xuyingzhou/.nvm/versions/node/v25.2.1/bin/pi"
 LOGS_DIR = PROJECT_DIR / "logs"
 GITHUB_REPO = "dyyz1993/pi-example-mutil"
+PROCESSED_FILE = PROJECT_DIR / ".agent" / "processed_issues.json"
 
-# 环境变量
+# 环境变量 - 确保 node 路径正确（使用完整 PATH）
 ENV = os.environ.copy()
-ENV["PATH"] = "/Users/xuyingzhou/.nvm/versions/node/v25.2.1/bin:/usr/local/bin:/usr/bin:/bin"
+node_path = "/Users/xuyingzhou/.nvm/versions/node/v25.2.1/bin"
+# 保留原有 PATH，将 node 路径放在最前面
+original_path = ENV.get("PATH", "/usr/bin:/bin")
+ENV["PATH"] = f"{node_path}:{original_path}"
+ENV["NODE_PATH"] = f"{node_path}/lib/node_modules"
+# 添加 NVM 相关环境
+ENV["NVM_DIR"] = "/Users/xuyingzhou/.nvm"
+
+def load_processed_issues():
+    """加载已处理的 Issue 列表"""
+    if PROCESSED_FILE.exists():
+        try:
+            with open(PROCESSED_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_processed_issue(issue_num):
+    """保存已处理的 Issue"""
+    processed = load_processed_issues()
+    if issue_num not in processed:
+        processed.append(issue_num)
+        PROCESSED_FILE.parent.mkdir(exist_ok=True)
+        with open(PROCESSED_FILE, "w") as f:
+            json.dump(processed, f)
 
 def log(message):
     """打印日志"""
@@ -71,14 +97,35 @@ def process_issue(issue):
     issue_num = issue["number"]
     title = issue["title"]
     body = issue.get("body", "")
-    
+    labels = issue.get("labels", [])
+
+    # 检查是否已处理
+    processed = load_processed_issues()
+    if issue_num in processed:
+        log(f"Issue #{issue_num} 已处理过，跳过")
+        return None
+
+    # 检查是否有 "in-progress" 或 "done" 标签
+    label_names = [l.get("name", "") for l in labels]
+    if "done" in label_names or "completed" in label_names:
+        log(f"Issue #{issue_num} 已标记完成，跳过")
+        save_processed_issue(issue_num)
+        return None
+
     log(f"处理 Issue #{issue_num}: {title}")
-    
+
     # 使用 subagent 工具委托给具体的 Agent 执行开发
     prompt = f"""你是 Team Lead，需要处理 GitHub Issue #{issue_num}。
 
+**环境设置（重要！）**：
+执行任何 bash 命令前，先设置环境：
+```bash
+export PATH="/Users/xuyingzhou/.nvm/versions/node/v25.2.1/bin:$PATH"
+export NVM_DIR="/Users/xuyingzhou/.nvm"
+```
+
 **Issue 标题**: {title}
-**Issue 内容**: 
+**Issue 内容**:
 {body}
 
 **重要指令**：
@@ -86,6 +133,7 @@ def process_issue(issue):
 2. 使用 subagent 工具委托给合适的子 Agent 执行实际开发工作
 3. 子 Agent 必须使用 write、edit、bash 等工具真正修改代码
 4. 开发完成后提交代码并创建 PR
+5. **完成后使用 `gh issue edit {issue_num} --add-label "done"` 给 Issue 添加 done 标签**
 
 **不要只生成报告！必须真正执行开发！**
 
@@ -97,6 +145,8 @@ def process_issue(issue):
 # 2. backend-dev 会真正写代码
 # 3. 检查结果
 # 4. 创建 PR
+# 5. 标记 Issue 为 done
+gh issue edit {issue_num} --add-label "done"
 ```
 
 现在开始处理 Issue #{issue_num}："""
@@ -104,7 +154,10 @@ def process_issue(issue):
     stdout, stderr, code = run_pi(prompt, timeout=600)
     
     log(f"Issue #{issue_num} 处理完成")
-    
+
+    # 标记为已处理
+    save_processed_issue(issue_num)
+
     # 写入日志
     log_file = LOGS_DIR / f"issue-{issue_num}.log"
     with open(log_file, "w") as f:

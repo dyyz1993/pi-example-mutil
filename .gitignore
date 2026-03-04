@@ -19,3 +19,71 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Build output
+dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Agent runtime
+.agent/sessions/
+.agent/reports/
+.agent/processed_issues.json
+
+# Test coverage
+coverage/
+
+# Build output
+dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Agent runtime
+.agent/sessions/
+.agent/reports/
+.agent/processed_issues.json
+
+# Test coverage
+coverage/
+
+# Build output
+dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Agent runtime
+.agent/sessions/
+.agent/reports/
+.agent/processed_issues.json
+
+# Test coverage
+coverage/
+
+# Build output
+dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Agent runtime
+.agent/sessions/
+.agent/reports/
+.agent/processed_issues.json
+
+# Test coverage
+coverage/

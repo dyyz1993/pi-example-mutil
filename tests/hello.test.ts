@@ -2,28 +2,23 @@
  * Hello World API 测试
  */
 
-import { handleHelloRequest } from '../src/api/hello.ts';
+import { describe, it, expect } from 'vitest';
+import { handleHelloRequest } from '../src/api/hello';
 
-async function testHelloApi() {
-  console.log('Testing Hello World API...');
-  
-  try {
+describe('Hello API', () => {
+  it('should return Hello World message', async () => {
     const response = await handleHelloRequest();
     
-    if (response.message !== 'Hello World') {
-      throw new Error(`Expected message "Hello World", got "${response.message}"`);
-    }
+    expect(response.message).toBe('Hello World');
+    expect(response.timestamp).toBeDefined();
+    expect(typeof response.timestamp).toBe('string');
+  });
+  
+  it('should return valid ISO timestamp', async () => {
+    const response = await handleHelloRequest();
     
-    if (!response.timestamp) {
-      throw new Error('Expected timestamp to be present');
-    }
-    
-    console.log('✓ Test passed!');
-    console.log('Response:', response);
-  } catch (error) {
-    console.error('✗ Test failed:', error);
-    process.exit(1);
-  }
-}
-
-testHelloApi();
+    // 验证 timestamp 是有效的 ISO 日期字符串
+    const date = new Date(response.timestamp!);
+    expect(date.toISOString()).toBe(response.timestamp);
+  });
+});
