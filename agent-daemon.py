@@ -42,11 +42,13 @@ def run_pi(prompt, timeout=300):
             env=ENV,
             timeout=timeout
         )
+        # 安全：不记录 prompt 内容（可能包含敏感信息）
         return result.stdout, result.stderr, result.returncode
     except subprocess.TimeoutExpired:
         return "", "Timeout", -1
     except Exception as e:
-        return "", str(e), -1
+        # 安全：不记录详细错误信息
+        return "", "Execution failed", -1
 
 def get_github_issues():
     """获取 GitHub 未处理的 Issue"""
