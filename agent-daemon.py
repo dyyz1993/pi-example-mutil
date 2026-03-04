@@ -7,8 +7,13 @@ Agent 团队自动化守护进程
 import subprocess
 import time
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
+
+# 禁用输出缓冲
+sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', buffering=1)
+sys.stderr = os.fdopen(sys.stderr.fileno(), 'w', buffering=1)
 
 # 配置
 PROJECT_DIR = Path(__file__).parent.absolute()
@@ -53,7 +58,7 @@ last_run = {}
 def log(message):
     """打印日志"""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] {message}")
+    print(f"[{timestamp}] {message}", flush=True)
 
 def run_task(task):
     """执行任务"""
