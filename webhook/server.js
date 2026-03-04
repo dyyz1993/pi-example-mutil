@@ -13,8 +13,15 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PI_WEBHOOK_PORT || 3000;
-const SECRET = process.env.GITHUB_WEBHOOK_SECRET || 'your-secret';
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
+
+// 安全：强制要求 Webhook Secret
+const SECRET = process.env.GITHUB_WEBHOOK_SECRET;
+if (!SECRET) {
+  console.error('🔴 错误: 必须设置 GITHUB_WEBHOOK_SECRET 环境变量');
+  console.error('   示例: export GITHUB_WEBHOOK_SECRET=your-secret-key');
+  process.exit(1);
+}
 
 // 日志
 function log(message) {

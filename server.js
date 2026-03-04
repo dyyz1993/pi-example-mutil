@@ -6,6 +6,42 @@ import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// 简单的速率限制器
+const rateLimiter = {
+  windowMs: 60 * 1000, // 1 分钟窗口
+  maxRequests: 100, // 每分钟最多 100 次请求
+  clients: new Map(),
+  
+  check(clientId) {
+    const now = Date.now();
+    const client = this.clients.get(clientId) || { count: 0, resetTime: now + this.windowMs };
+    
+    if (now > client.resetTime) {
+      client.count = 0;
+      client.resetTime = now + this.windowMs;
+    }
+    
+    client.count++;
+    this.clients.set(clientId, client);
+    
+    return {
+      allowed: client.count <= this.maxRequests,
+      remaining: Math.max(0, this.maxRequests - client.count),
+      resetTime: client.resetTime
+    };
+  }
+};
+
+// 清理过期的速率限制记录
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, client] of rateLimiter.clients) {
+    if (now > client.resetTime) {
+      rateLimiter.clients.delete(id);
+    }
+  }
+}, 60 * 1000);
+
 // 启动 pi RPC 进程
 let piProcess = null;
 let requestId = 0;
@@ -71,7 +107,11 @@ function sendToPi(command) {
 // HTTP 服务器
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
-
+  
+  // 获取客户端 IP（用于速率限制）
+  const clientId = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+                   req.socket.remoteAddress || 'unknown';
+  
   // 静态文件
   if (url.pathname === '/' || url.pathname === '/index.html') {
     const html = await readFile(join(__dirname, 'index.html'));
@@ -80,15 +120,58 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // API: 发送消息
+  // API: 发送消息（需要速率限制）
   if (url.pathname === '/api/prompt' && req.method === 'POST') {
+    // 检查速率限制
+    const rateLimit = rateLimiter.check(clientId);
+    res.setHeader('X-RateLimit-Remaining', rateLimit.remaining);
+    res.setHeader('X-RateLimit-Reset', rateLimit.resetTime);
+    
+    if (!rateLimit.allowed) {
+      res.writeHead(429, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        error: 'Too many requests', 
+        retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
+      }));
+      return;
+    }
+    
     let body = '';
-    req.on('data', chunk => body += chunk);
+    const MAX_BODY_SIZE = 1024 * 100; // 100KB 限制
+    
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > MAX_BODY_SIZE) {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Payload too large' }));
+        return;
+      }
+    });
+    
     req.on('end', async () => {
-      const { message } = JSON.parse(body);
-      const result = await sendToPi({ type: 'prompt', message });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
+      try {
+        const data = JSON.parse(body);
+        
+        // 输入验证
+        if (!data.message || typeof data.message !== 'string') {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid message: message must be a string' }));
+          return;
+        }
+        
+        if (data.message.length > 10000) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Message too long (max 10000 characters)' }));
+          return;
+        }
+        
+        const result = await sendToPi({ type: 'prompt', message: data.message });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
     });
     return;
   }

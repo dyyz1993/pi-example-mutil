@@ -1,38 +1,21 @@
-# Dependencies
-node_modules/
-package-lock.json
-
-# Environment variables
+# 环境变量（包含敏感信息，不要提交）
 .env
-.env.local
-.env.*.local
 
-# Logs
+# Node modules
+node_modules/
+
+# 日志
 logs/
 *.log
-npm-debug.log*
 
-# Process IDs
+# PID 文件
 pids/
-*.pid
 
-# OS files
+# 系统文件
 .DS_Store
 Thumbs.db
 
 # IDE
-.vscode/
 .idea/
+.vscode/
 *.swp
-*.swo
-
-# Build
-dist/
-build/
-
-# Test coverage
-coverage/
-
-# Temporary files
-*.tmp
-temp/
