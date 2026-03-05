@@ -114,43 +114,56 @@ def process_issue(issue):
 
     log(f"处理 Issue #{issue_num}: {title}")
 
-    # 使用 subagent 工具委托给具体的 Agent 执行开发
-    prompt = f"""你是 Team Lead，需要处理 GitHub Issue #{issue_num}。
+    # 根据 Issue 标签或标题选择合适的 Agent
+    agent = "developer"  # 默认
+    if "backend" in title.lower() or "api" in title.lower() or "数据库" in title:
+        agent = "backend-dev"
+    elif "frontend" in title.lower() or "ui" in title.lower() or "界面" in title:
+        agent = "frontend-dev"
+    elif "deploy" in title.lower() or "docker" in title.lower() or "ci" in title.lower():
+        agent = "devops"
+    elif "test" in title.lower() or "测试" in title:
+        agent = "test-engineer"
+    elif "review" in title.lower() or "审查" in title:
+        agent = "reviewer"
+    elif "architect" in title.lower() or "架构" in title:
+        agent = "architect"
 
-**环境设置（重要！）**：
+    log(f"  → 分配给 Agent: {agent}")
+
+    # 读取 Agent 角色定义
+    agent_role = ""
+    agent_file = Path.home() / ".pi" / "agent" / "agents" / f"{agent}.md"
+    if agent_file.exists():
+        agent_role = agent_file.read_text()
+
+    # 直接以指定 Agent 角色执行
+    prompt = f"""你是 **{agent}**（专业开发角色）。
+
+## 你的角色定义
+{agent_role}
+
+## 环境设置（重要！）
 执行任何 bash 命令前，先设置环境：
 ```bash
 export PATH="/Users/xuyingzhou/.nvm/versions/node/v25.2.1/bin:$PATH"
 export NVM_DIR="/Users/xuyingzhou/.nvm"
 ```
 
+## 任务：处理 GitHub Issue #{issue_num}
+
 **Issue 标题**: {title}
 **Issue 内容**:
 {body}
 
-**重要指令**：
-1. 分析这个 Issue 是什么类型的任务（bug修复/新功能/文档更新）
-2. 使用 subagent 工具委托给合适的子 Agent 执行实际开发工作
-3. 子 Agent 必须使用 write、edit、bash 等工具真正修改代码
-4. 开发完成后提交代码并创建 PR
-5. **完成后使用 `gh issue edit {issue_num} --add-label "done"` 给 Issue 添加 done 标签**
+## 执行指令
+1. **直接执行开发** - 使用 write、edit、bash 工具修改代码
+2. **不要只生成报告** - 必须真正修改文件
+3. 完成后使用 `gh issue edit {issue_num} --add-label "done"` 标记完成
+4. 如果需要创建 PR，使用 gh pr create 命令
 
-**不要只生成报告！必须真正执行开发！**
+现在开始执行！"""
 
-示例流程：
-```
-# 1. 分析后委托给 backend-dev
-使用 subagent 工具，agent: "backend-dev"，task: "实现 XXX 功能"
-
-# 2. backend-dev 会真正写代码
-# 3. 检查结果
-# 4. 创建 PR
-# 5. 标记 Issue 为 done
-gh issue edit {issue_num} --add-label "done"
-```
-
-现在开始处理 Issue #{issue_num}："""
-    
     stdout, stderr, code = run_pi(prompt, timeout=600)
     
     log(f"Issue #{issue_num} 处理完成")
@@ -222,19 +235,20 @@ def generate_weekly_report():
 TASKS = [
     {
         "name": "check-issues",
-        "interval": 300,  # 5 分钟
+        "interval": 30,  # 30 秒 (改短方便观察)
         "handler": check_and_process_issues
     },
-    {
-        "name": "health-check",
-        "interval": 3600,  # 1 小时
-        "handler": health_check
-    },
-    {
-        "name": "weekly-report",
-        "interval": 86400,  # 1 天
-        "handler": generate_weekly_report
-    }
+    # 暂时禁用健康检查和周报，避免阻塞
+    # {
+    #     "name": "health-check",
+    #     "interval": 3600,  # 1 小时
+    #     "handler": health_check
+    # },
+    # {
+    #     "name": "weekly-report",
+    #     "interval": 86400,  # 1 天
+    #     "handler": generate_weekly_report
+    # }
 ]
 
 # 任务上次执行时间
